@@ -337,18 +337,27 @@ public class SetupTeardownIncluder {
 - 很多时候，简单到只需要创建一个描述与注释所言同一事物的函数即可。
 - 好注释——唯一真正好的注释是你想办法不去写的注释
 
-##### 好注释
+#####     好注释
 
 1. 法律信息
+
 2. 提供信息的注释
+
 3. 对意图的解释
+
 4. 阐释
+
 5. 警示
+
 6. TODO注释（一种程序员认为应该做，但由于某些原因目前还没做的工作）
+
 7. 放大
+
 8. 公共API中的Javadoc
 
-#####坏注释
+   
+
+   #### 坏注释
 
 1. 喃喃自语
 2. 多余的注释
@@ -368,3 +377,137 @@ public class SetupTeardownIncluder {
 16. 不明显的联系
 17. 函数头
 18. 非公共代码中的Javadoc
+
+
+
+##第五章 格式
+
+写代码应该保持良好的格式，应该选一套管理代码格式的规则，然后贯彻这个规则。团队中应该达成一致，采用一套简单的代码格式规则。
+
+##### 格式的目的
+
+先明确一下代码格式非常重要不可忽略，好的代码格式能帮助我们更好的沟通。
+
+##### 垂直格式
+
+文件尺寸与类尺寸及其相关。短文件比长文件更容易接受。
+
+##### 向报纸学习
+
+自上而下阅读，有个头条告知主题，好让阅读者决定是否继续阅读下去、第一段应该是故事的大纲、给出粗线条的概述，隐藏了故事的细节，名称应该一目了然、细节应该逐层展开。应短小精悍。
+
+#####垂直方向区分
+
+每组代码用空白行区分出来，空白行是一条线索，用来标识出新的独立概念，目光会停留在空白行之后那一行
+
+
+
+```C#
+public ActionResult GetList()
+        {
+            ITopClient client = new TopClientDefault();
+            Dictionary<string, string> dic = new Dictionary<string, string>();
+            string companyID = this.CompanyID;
+  
+            int pageIndex = WebUtil.GetFormValue<int>("PageIndex", 1);
+            int pageSize = WebUtil.GetFormValue<int>("PageSize", 10);
+            string tabeName = WebUtil.GetFormValue<string>("TabName", string.Empty);
+
+            dic.Add("CompanyID", companyID);
+            dic.Add("PageIndex", pageIndex.ToString());
+            dic.Add("PageSize", pageSize.ToString());
+            dic.Add("TabName", tabeName);
+
+            string result = client.Execute(SequenceApiName.SequenceApiName_GetOrderList,dic);
+            return Content(result);
+        }
+```
+
+```C#
+public ActionResult GetList()
+        {
+            ITopClient client = new TopClientDefault();
+            Dictionary<string, string> dic = new Dictionary<string, string>();
+            string CompanyID = this.CompanyID;
+            int PageIndex = WebUtil.GetFormValue<int>("PageIndex", 1);
+            int PageSize = WebUtil.GetFormValue<int>("PageSize", 10);
+            string TabName = WebUtil.GetFormValue<string>("TabName", string.Empty);
+            dic.Add("CompanyID", CompanyID);
+            dic.Add("PageIndex", PageIndex.ToString());
+            dic.Add("PageSize", PageSize.ToString());
+            dic.Add("TabName", TabName);
+            string result = client.Execute(SequenceApiName.SequenceApiName_GetOrderList,dic);
+            return Content(result);
+        }
+```
+
+第一个例子中空白行显示了垂直方向的分割作用。第二个例子中就有些乱了。
+
+##### 垂直方向的靠近
+
+
+
+```C#
+public ActionResult Delete()
+        {
+            string CompanyID = WebUtil.GetFormValue<string>("CompanyID");
+            List<string> list = WebUtil.GetFormObject<List<string>>("List");
+  
+            FinanceBillProvider provider = new FinanceBillProvider(CompanyID);
+            int line = provider.Delete(list);
+
+            DataResult result = new DataResult();
+            if (line > 0)
+            {
+                result.Code = (int)EResponseCode.Success;
+                result.Message = "删除成功";
+            }
+            else
+            {
+                result.Code = (int)EResponseCode.Exception;
+                result.Message = "删除失败";
+            }
+            return Content(JsonHelper.SerializeObject(result));
+        }
+```
+
+```C#
+public ActionResult Delete()
+        {
+  					 //获取公司ID
+            string CompanyID = WebUtil.GetFormValue<string>("CompanyID");
+            //获取要删除的公司列表
+            List<string> list = WebUtil.GetFormObject<List<string>>("List");
+            //获取公司实体
+            FinanceBillProvider provider = new FinanceBillProvider(CompanyID);
+            int line = provider.Delete(list);
+
+            DataResult result = new DataResult();
+            if (line > 0)
+            {
+                result.Code = (int)EResponseCode.Success;
+                result.Message = "删除成功";
+            }
+            else
+            {
+                result.Code = (int)EResponseCode.Exception;
+                result.Message = "删除失败";
+            }
+            return Content(JsonHelper.SerializeObject(result));
+        }
+```
+
+实例中三行注释破坏了垂直方向的靠近。第一个实例更容易看出 先获取参数 再处理参数 最后返回结果。
+
+##### 垂直距离
+
+关系密切的概念应该互相靠近，否则就把不同的 概念放在不同的文件中去。应该避免让读者在代码源文件中跳来跳去
+
+###### 变量声明 
+
+尽可能靠近使用的位置
+
+
+
+
+
