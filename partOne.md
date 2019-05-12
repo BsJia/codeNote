@@ -507,7 +507,348 @@ public ActionResult Delete()
 
 尽可能靠近使用的位置
 
+```
+private static void ReadPreFerences()
+{
+
+}
+```
+
+### 横向格式
+
+　　应该尽力保持代码行短小。死守 80 个字符的上限有点僵化，而且也不反对代码行长度达到 100 个字符或 120 个字符。再多的话，大抵就是肆意妄为了。
+
+##### 水平方向上的区隔与靠近
+
+　　我们使用空格字符将彼此紧密相关的事物连接到一起，也用空格字符把相关性较弱的事物分隔开。
+　　在赋值操作符周围加上空格字符，以此达到强调目的。赋值语句有两个确定而重要的要素：左边和右边。空格字符加强了分隔效果。
+　　另一方面，我不在函数名和左圆括号之间加空格。这是因为函数与其参数密切相关，如果隔开，就会显得互无关系。我把函数调用括号中的参数一一隔开，强调逗号，表示参数是互相分离的。
+　　空格字符的另一种用法是强调其前面的运算符。
+　　乘法因子之前没加空格，因为它们具有较高优先级。加减法运算项之间用空格隔开，因为加法和减法优先级较低。
+
+##### 水平对齐
+
+　　对齐并没有什么用，如果有较长的列表需要做对齐处理，那么问题就是在列表的长度上而不是对齐上。
+
+##### 缩进
+
+　　源文件是一种继承结构，而不是一种大纲结构。其中的信息涉及整个文件、文件中每个类、类中的方法、方法中的代码块，也涉及代码块中的代码块。这种继承结构中的每一层级都圈出一个范围，名称可以在其中声明，而声明和执行语句也可以在其中解释。
+　　要让这种范围式继承结构可见，我们依源代码行在继承结构中的位置对源代码行做缩进处理。在文件顶层的语句，例如大多数的类声明，根本不缩进。类中的方法相对该类缩进一个层级。方法的实现相对方法声明缩进一个层级。代码块的实现相对于其容器代码块缩进一个层级，以此类推。
+
+#### 空范围
+
+　　有时，while 或 for 语句的语句体为空，尽量不要使用。如果无法避免，就确保空范围体的缩进，用括号包围起来。
+
+### 团队规则
+
+　　记住，好的软件系统是由一系列读起来不错的代码文件组成的。它们需要拥有一致和顺畅的风格。读者要能确信，他们在一个源文件中看到的格式风格在其他文件中也是同样的用法。绝对不要用各种不同的风格来编写源代码，这样会增加其复杂度
+
+```java 
+public class CodeAnalyzer
+{
+    private int lineCount;
+    private int maxLineWidth;
+    private int widestLineNumber;
+    private LineWidthHistogram lineWidthHistogram;
+    private int totalChars;
+ 
+    public CodeAnalyzer()
+    {
+        lineWidthHistogram = new LineWidthHistogram();
+    }
+ 
+    public static List<File> FindFiles(File parentDirectory)
+    {
+        List<File> files = new ArrayList<File>();
+        findJavaFiles(parentDirectory, files);
+        return files;
+    }
+ 
+    private static void findJavaFiles(File parentDirectory, List<File> files)
+    {
+        for (File file : parentDirectory.listFiles())
+        {
+            if (file.getName().endsWith(".java"))
+                files.add(file);
+            else if (file.isDirectory())
+                findJavaFiles(file, files);
+        }
+    }
+ 
+    public void analyzeFile(File javaFile) throws Exception
+    {
+        BufferedReader br = new BufferedReader(new FileReader(javaFile));
+    	String line;
+    	while ((line = br.readLine()) != null)
+    	measureLine(line);
+    }
+ 
+    private void measureLine(String line)
+    {
+        lineCount++;
+        int lineSize = line.length();
+        totalChars += lineSize;
+        lineWidthHistogram.addLine(lineSize, lineCount);
+        recordWidestLine(lineSize);
+    }
+ 
+    private void recordWidestLine(int lineSize)
+    {
+        if (lineSize > maxLineWidth)
+        {
+            maxLineWidth = lineSize;
+            widestLineNumber = lineCount;
+        }
+    }
+ 
+    public int getLineCount()
+    {
+        return lineCount;
+    }
+ 
+    public int getMaxLineWidth()
+    {
+        return maxLineWidth;
+    }
+ 
+    public int getWidestLineNumber()
+    {
+        return widestLineNumber;
+    }
+ 
+    public LineWidthHistogram getLineWidthHistogram()
+    {
+        return lineWidthHistogram;
+    }
+ 
+    public double getMeanLineWidth()
+    {
+        return (double)totalChars / lineCount;
+    }
+ 
+    public int getMedianLineWidth()
+    {
+        Integer[] sortedWidths = getSortedWidths();
+        int cumulativeLineCount = 0;
+        for (int width : sortedWidths)
+        {
+            cumulativeLineCount += lineCountForWidth(width);
+            if (cumulativeLineCount > lineCount / 2)
+                return width;
+        }
+        throw new Error("Cannot get here");
+    }
+ 
+    private int lineCountForWidth(int width)
+    {
+        return lineWidthHistogram.getLinesforWidth(width).size();
+    }
+ 
+    private Integer[] getSortedWidths()
+    {
+        Set<Integer> widths = lineWidthHistogram.getWidths();
+        Integer[] sortedWidths = (widths.toArray(new Integer[0]));
+        Arrays.sort(sortedWidths);
+        return sortedWidths;
+    }
+}
+```
 
 
 
+##第六章 对象和数据结构
+
+##### 数据抽象
+
+看以下代码片段的区别。每段代码都表示笛卡尔平面上的一个点。不过，其中之一暴露了其实现，而另一个则完全隐藏了其实现。
+
+ 具象
+
+```c#
+public class Point {
+  public double x;
+  public double y;
+}
+```
+
+抽象
+
+```
+public interface Point {
+    double getX();
+    double getY();
+    void setCartesian(double x, double y); 
+    double getR();
+    double getTheta();
+    void setPolar(double r, double theta);
+}
+```
+
+2漂亮之处在于，你不知道该实现会是在矩形坐标系中还是在极坐标系中。可能两个都不是！然而，该接口还是明白无误地呈现了一种数据结构。
+不过它呈现的不止一种数据结构，还固定了一套存取策略。你可以单独读取某个坐标，但必须通过一次原子操作设定所有坐标。
+而1 则非常清楚地是在矩形坐标系中实现，并要求我们单个操作哪些坐标，这就暴露了实现。实际上，即便变量都是私有，而且我们也通过变量取值器和赋值器使用变量，其实现仍然暴露了。
+隐藏实现并非只是在变量之间放上一个函数层那么简单。隐藏实现关乎抽象！类并不简单地用取值器和赋值器将其变量推向外间，而是暴露抽象接口，以便用户无需了解数据结构的实现就能操作数据本体。
+
+##### 数据、对象的反对称性
+
+上面的例子展现了对象与数据结构之间的差异。对象把数据隐藏于抽象之后，暴露操作数据的函数。数据结构暴露其数据，没有提供有意义的函数。它们是对立的。这种差异貌似微小，但却有深远的意义。
+
+###### 过程式形状代码
+
+
+
+```java
+public class Square {
+       public Point topLeft;
+       public double side;
+}
+
+public class Rectangle {
+    public Point topLeft;
+    public double height;
+    public double width;
+}
+
+public class Circle {
+    public Point center;
+    public double radius;
+}
+
+public double area(Object shape) throws NoSuchShapeException {
+    if (shape instanceOf Square) {
+        Square s = (Square) shape;
+        return s.side * s.side;
+    } else if (shape instanceOf Rectangle) {
+        Rectangle r = (Rectangle) shape;
+        return r.width * r.height;
+    } else if (shape instanceOf Circle) {
+        Circle c = (Circle) shape;
+        return PI * c.radius * c.radius;
+    }
+    
+    throw new NoSuchShapeException();
+}
+```
+
+
+
+
+上面代码展示了面向过程的代码样式。Geometry类操作三个形状类，而形状类都是简单的数据结构，没有任何行为。所有行为都在Geometry类中。
+面向对象程序员可能会对此嗤之以鼻，抱怨说这是过程式代码——他们大概是对的，但是这种嘲笑并不完全正确。试想一下，如果给Geometry类添加一个primeter()函数会怎样。那么形状类根本不会因此而受影响！另一方面，如果添加一个形状类，就得修改Geometry中的所有函数来处理它。注意，这两种情形也是直接对立的。
+下面来看看面向对象方案。这里area()方法是多态的，不需要Geometry类。所以，如果添加一个新的形状，现有的函数一个也不会受影响，而添加新函数时所有的形状都得修改。
+
+
+    
+```java
+public class Square implements Shape {
+    private Point topLeft;
+    private double side;
+		public double area() {
+    	return side * side;
+		}
+}
+    
+```
+```java
+public class Rectangle implements Shape {
+    private Point topLeft;
+    private double height;
+    private double width;
+public double area() {
+    return width * height;
+}
+}
+```
+
+
+```java
+public class Circle implements Shape {
+    private Point center;
+    private double radius;
+    public final double PI = 3.141592653589793;
+public double area() {
+    return PI * radius * radius;
+  }
+}
+```
+
+
+
+两种定义是截然对立的。这说明了对象与数据结构之间的二分原理：
+
+过程式代码（使用数据结构的代码）便于在不改动既有数据结构的前提下添加新函数。面向对象代码便于在不改动既有函数的前提下添加新类。
+
+反过来也说得通：
+
+过程式代码难以添加新数据结构，因为必须修改所有函数。面向对象代码难以添加新函数，因为必须修改所有类。
+
+所以，对于面向对象较难的事，对于过程式代码却较容易，反之亦然！
+一切都是对象只是一个传说！分情况来处理采用面向对象方式还是面向过程的写法。
+#### 迪米特法则(The law of Demeter)
+
+迪米特法则又叫最少知道原则（Least Knowledge Principle，简写LKP），就是说一个对象应当对其他对象又尽可能少的了解，不和陌生人说话。
+模块不应该了解它所操作的对象的内部情形。如上节所见，对象隐藏数据，暴露操作。这意味着对象不应该通过存取器暴露其内部结构，因为这样更像是暴露而非隐藏其内部结构。
+更准确地说，迪米特法则认为，类C的方法f只应该调用一下对象的方法：
+
+C
+由f创建的对象
+作为参数传递给f的对象
+由C的实体变量持有的对象
+
+方法不应调用由任何函数返回的对象的方法。换言之，只跟朋友谈话，不和陌生人说话。
+下列代码违反了迪米特法则，因为它调用了getOptions()返回值的getScratchDir()，又调用了getScratchDir()返回值的getAbsolutePath()方法。
+final String outputDir = ctx.getOptions().getScratchDir().getAbsolutePath();
+
+#### 火车失事
+
+这类代码常被称作火车失事。最好做如下拆分：
+
+```java 
+Options opts = ctx.getOptions();
+File scratchDir = opts.getScratchDir();
+final String outputDir = scratchDir.getAbsolutePath();
+```
+
+上述代码，如果ctx、Options、ScratchDir是对象，则它们的内部数据结构应当隐藏而不暴露，其违反了迪米特法则。如果ctx、Options、ScratchDir只是数据结构，没有任何行为，则它们自然会暴露其内部结构，迪米特法则就不适用了。
+如果数据结构只是简单地拥有公共变量，没有函数，而对象则拥有私有变量和公共函数，这个问题就不那么混淆了。
+
+#### 混杂
+
+混杂导致了混合结构的出现，一半是对象，一半是数据结构。无论出于怎么样的初衷，公共访问器及改值器都把私有变量公开化，诱导外部函数以过程式程序使用数据结构的方式使用这些变量。
+这类混杂增加了添加新函数的难度，也增加了添加新数据结构的难度，应避免创造这种结构。
+
+#### 隐藏结构
+
+假如ctx、Options、ScratchDir是拥有真实行为的对象，我们改如何改造这个呢？
+两种方案来获取临时目录的绝对路径：
+
+```java
+ctx.getAbsolutePathOfScratchDirectoryOption();
+
+或
+
+ctx.getScratchDirectoryOption().getAbsolutePath();
+```
+
+
+
+
+
+第一种方案可能导致ctx对象中方法的暴露。第二种方案是在假设ggetScratchDirectoryOption返回一个数据结构而非对象。两种方案感觉都不好。
+如果ctx是一个对象，就应该要求它做点什么，而不是要求它给出内部情形。那为何我们还要得到临时目录的绝对路径呢？  例子中源代码实际上是通过取得临时目录绝对路径来创建制定名称的临时文件。
+所以，直接让ctx对象来做这件事如何？
+BufferedOutputStream bos = ctx.createScrathFileStream(classFileName);
+
+这样ctx隐藏了其内部数据结构，防止当前函数因浏览它不该知道的对象而违反了迪米特法则。
+
+#### 数据传送对象
+
+最为精炼的数据结构，是一个只有公共变量、没有函数的类。这种数据结构有时被称为数据传送对象，或DTO（Data Transfer Objects）。
+这种结构对象在用于数据库通信、或解析套接字传递的消息之类场景中，非常有用。
+对这种结构经常会封装为“bean”结构，豆结构拥有赋值器和取值器操作的私有变量。这种半封装让某些OO纯化论者感觉舒服些，不过通常并没有其他好处。
+
+##### 总结
+
+对象暴露行为，隐藏数据。便于添加新对象类型而无需修改现有行为，同时也难以在既有对象中添加新行为。数据结构暴露数据，没有明显的行为。便于向既要数据结构添加新行为，同时也难以向既有函数添加新数据的结构。
+我们应该根据手边工作的性质，灵活的选择使用对象还是数据结构
 
