@@ -1049,21 +1049,17 @@ public double xProjection(Point p1, Point p2) {
 
 
 
-Right now, getEmployees can return null, but does it have to? If we change getEmployee so that it returns an empty list, we can clean up the code: 
-
-
-
-Fortunately, Java has Collections.emptyList(), and it returns a predefined immutable list that we can use for this purpose: 
-
-
-
 ##### 总结
 
 整洁代码是可读的，但也要强固。可读和强固并不冲突。如果将错误处理隔离看待，独立于主要逻辑之外，就能写出顽固而整洁的代码。做到这一步，我们就能单独处理它，也极大地提升了代码的可维护性。
 
 ###八.边界
 
+
+
 ##### 使用第三方代码
+
+
 
 1.第三方程序包和框架提供者追求普适性，这样就能在多个环境中工作，吸引广泛的用户
 
@@ -1140,7 +1136,11 @@ logger.info("addAppenderWithoutStream"); }
 
 3.可以使用ADAPTER模式将我们的接口转换为第三方提供的接口
 
-#### 九.单元测试
+### 九.单元测试
+
+
+
+
 
 ##### TDD三定律
 
@@ -1291,7 +1291,9 @@ public void testAddMonths() {
 
 5.及时（Timely）测试应及时编写
 
-###十.类
+### 十.类
+
+
 
 #####类的组织
 
