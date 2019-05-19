@@ -673,7 +673,7 @@ public class Point {
 
 抽象
 
-```
+```JAVA
 public interface Point {
     double getX();
     double getY();
@@ -738,7 +738,7 @@ public double area(Object shape) throws NoSuchShapeException {
 下面来看看面向对象方案。这里area()方法是多态的，不需要Geometry类。所以，如果添加一个新的形状，现有的函数一个也不会受影响，而添加新函数时所有的形状都得修改。
 
 
-    
+​    
 ```java
 public class Square implements Shape {
     private Point topLeft;
@@ -852,3 +852,741 @@ BufferedOutputStream bos = ctx.createScrathFileStream(classFileName);
 对象暴露行为，隐藏数据。便于添加新对象类型而无需修改现有行为，同时也难以在既有对象中添加新行为。数据结构暴露数据，没有明显的行为。便于向既要数据结构添加新行为，同时也难以向既有函数添加新数据的结构。
 我们应该根据手边工作的性质，灵活的选择使用对象还是数据结构
 
+
+
+### 第七章 错误处理
+
+##### 错误处理不要搞乱代码逻辑
+
+##### 使用异常而不是返回码
+
+Bad code
+
+```java
+public class DeviceController {
+    ...
+    public void sendShutDown() {
+        DeviceHandle handle = getHandle(DEV1);
+        // Check the state of the device
+        if (handle != DeviceHandle.INVALID) {
+            // Save the device status to the record field
+            retrieveDeviceRecord(handle);
+            // If not suspended, shut down
+            if (record.getStatus() != DEVICE_SUSPENDED) {
+                pauseDevice(handle);
+                clearDeviceWorkQueue(handle);
+                closeDevice(handle);
+            } else {
+                logger.log("Device suspended. Unable to shut down");
+            }
+        } else {
+            logger.log("Invalid handle for: " + DEV1.toString());
+        }
+    }
+    ...
+}
+```
+
+
+
+Good code
+
+遇到错误最好抛出异常，这样调用代码也会非常整洁
+
+```JAVA
+public class DeviceController {
+    ...
+    public void sendShutDown() {
+        try {
+            tryToShutDown();
+        } catch (DeviceShutDownError e) {
+            logger.log(e);
+        }
+    }
+    private void tryToShutDown() throws DeviceShutDownError {
+        DeviceHandle handle = getHandle(DEV1);
+        DeviceRecord record = retrieveDeviceRecord(handle);
+        pauseDevice(handle);
+        clearDeviceWorkQueue(handle);
+        closeDevice(handle);
+    }
+    private DeviceHandle getHandle(DeviceID id) {
+        ...
+        throw new DeviceShutDownError("Invalid handle for: " + id.toString());
+        ...
+    }
+    ...
+}
+```
+
+#### 推荐使用不可控异常(unchecked Exception)
+
+目前,C#、C++、Python、Ruby都不再（或从未）支持或受检异常。因为其违反了开放\闭合原则，即如果在某层次方法里面抛出了受检异常，那么其上层除非catch住，否则都要重重抛出此异常。完全的耦合了。
+所以现在的建议是：
+一般应用开发仅考虑抛出unchecked Exception，关键代码库，则可考虑checked Exception
+
+##### 给出异常发生的环境说明
+
+#### 依调用只需要使用异常类
+
+Bad code 
+
+覆盖了可能 抛出的所有异常，且包含重复代码
+
+```JAVA
+ACMEPort port = new ACMEPort(12);
+try {
+    port.open();
+} catch (DeviceResponseException e) {
+    reportPortError(e);
+    logger.log("Device response exception", e);
+} catch (ATM1212UnlockedException e) {
+    reportPortError(e);
+    logger.log("Unlock exception", e);
+} catch (GMXError e) {
+    reportPortError(e);
+    logger.log("Device response exception");
+}
+finally {
+    …
+}
+```
+
+
+
+good code 
+
+```java
+LocalPort port = new LocalPort(12);
+try {
+    port.open();
+}
+catch (PortDeviceFailure e) {
+    reportError(e);
+    logger.log(e.getMessage(), e);
+}
+finally {
+    …
+}
+
+public class LocalPort {
+    private ACMEPort innerPort;
+    public LocalPort(int portNumber) {
+        innerPort = new ACMEPort(portNumber);
+    }
+    public void open() {
+        try {
+            innerPort.open();
+        } catch (DeviceResponseException e) {
+            throw new PortDeviceFailure(e);
+        } catch (ATM1212UnlockedException e) {
+            throw new PortDeviceFailure(e);
+        } catch (GMXError e) {
+            throw new PortDeviceFailure(e);
+        }
+    }
+    …
+}
+```
+
+事实上这就是 第三方打包类 ，方便了第三方代码使用，且可以更好的模拟第三方代码的测试
+
+#### 不要返回null
+
+不要返回null值的原因： 
+（1）返回null值会导致程序中充满对null的判断；
+（2）如果不注意对null的判断，则会导致很不友好的空指针异常；
+针对这个问题也搜了一下，辩证的看到处理方法： 
+（1）对于集合和数组作为返回值，使用长度为零的数组或者空集合，而不是null；
+（2）字符串作为返回值，使用空字符串来代替null；
+（3）当空对象与其他返回对象有一样的行为和意义时，使用空对象；
+
+#### 不要传递null值
+
+不传递null值的意思，即不要在方法调用时，将参数设置为null。这将会带来更不可预料的后果。 但是如果程序中如果却需要对null值进行判断，可以抛出InvalidArgumentException或者使用断言来处理（而不是仅仅忽略null值）
+
+```java
+List<Employee> employees = getEmployees(); if (employees != null) { 
+for(Employee e : employees) {
+  totalPay += e.getPay(); 
+} } 
+
+List<Employee> employees = getEmployees(); 
+for(Employee e : employees) { 
+   totalPay += e.getPay(); 
+} 
+
+public List<Employee> getEmployees() { 
+  if( .. there are no employees .. ) 
+     return Collections.emptyList(); } 
+```
+
+```java
+public class MetricsCalculator {
+public double xProjection(Point p1, Point p2) {
+		return (p2.x – p1.x) * 1.5;
+}
+... }
+
+public class MetricsCalculator {
+public double xProjection(Point p1, Point p2) 
+{ 
+  if(p1==null||p2==null){
+	throw InvalidArgumentException(
+	"Invalid argument for MetricsCalculator.xProjection");
+}
+return (p2.x – p1.x) * 1.5; }
+}
+
+public class MetricsCalculator {
+public double xProjection(Point p1, Point p2) { 
+  assert p1 != null : "p1 should not be null";
+  assert p2 != null : "p2 should not be null"; 
+  return (p2.x – p1.x) * 1.5;
+} 
+}
+```
+
+
+
+Right now, getEmployees can return null, but does it have to? If we change getEmployee so that it returns an empty list, we can clean up the code: 
+
+
+
+Fortunately, Java has Collections.emptyList(), and it returns a predefined immutable list that we can use for this purpose: 
+
+
+
+##### 总结
+
+整洁代码是可读的，但也要强固。可读和强固并不冲突。如果将错误处理隔离看待，独立于主要逻辑之外，就能写出顽固而整洁的代码。做到这一步，我们就能单独处理它，也极大地提升了代码的可维护性。
+
+###八.边界
+
+##### 使用第三方代码
+
+1.第三方程序包和框架提供者追求普适性，这样就能在多个环境中工作，吸引广泛的用户
+
+```java
+
+Sensor s = (Sensor)sensors.get(sensorId );
+
+//good
+Map<Sensor> sensors = new HashMap<Sensor>(); ...
+Sensor s = sensors.get(sensorId );
+
+//better
+public class Sensors {
+private Map sensors = new HashMap();
+public Sensor getById(String id) { return (Sensor) sensors.get(id);
+}
+//snip }
+```
+
+```java
+
+@Test
+public void testLogCreate() {
+Logger logger = Logger.getLogger("MyLogger");
+logger.info("hello"); }
+
+
+@Test
+public void testLogAddAppender() {
+Logger logger = Logger.getLogger("MyLogger"); ConsoleAppender appender = new ConsoleAppender(); logger.addAppender(appender); logger.info("hello");
+}
+
+
+@Test
+public void testLogAddAppender() {
+Logger logger = Logger.getLogger("MyLogger"); logger.removeAllAppenders(); logger.addAppender(new ConsoleAppender(
+new PatternLayout("%p %t %m%n"),
+ConsoleAppender.SYSTEM_OUT)); logger.info("hello");
+}
+
+@Test
+public void testLogAddAppender() {
+Logger logger = Logger.getLogger("MyLogger"); logger.removeAllAppenders(); logger.addAppender(new ConsoleAppender(
+new PatternLayout("%p %t %m%n"),
+ConsoleAppender.SYSTEM_OUT)); logger.info("hello");
+}
+
+@Test
+public void addAppenderWithoutStream() {
+logger.addAppender(new ConsoleAppender( new PatternLayout("%p %t %m%n")));
+logger.info("addAppenderWithoutStream"); }
+}
+```
+
+
+
+2.我们建议不要将Map（或在边界上的其他接口）在系统中传递，把它保留在类或近亲类中，避免从API中返回边界接口，或将接口作为参数传递给公共API
+
+学习性测试的好处不只是免费
+
+1.学习性测试毫无成本，编写测试是获得这些知识（要使用的API）的容易而不会影响其他工作的途径
+
+2.学习性测试确保第三方程序包按照我们想要的方式工作
+
+##### 使用尚不存在的代码
+
+编写我们想得到的接口，好处之一是它在我们控制之下，有助于保持客户代码更可读，且集中于它该完成的工作
+
+###### 整洁的边界
+
+1.边界上的改动，有良好的软件设计，无需巨大投入和重写即可进行修改
+
+2.边界上的代码需要清晰的分割和定义了期望的测试。依靠你能控制的东西，好过依靠你控制不了的东西，免得日后受它控制
+
+3.可以使用ADAPTER模式将我们的接口转换为第三方提供的接口
+
+#### 九.单元测试
+
+##### TDD三定律
+
+1.在编写能通过的单元测试前，不可编写生产代码(测试先行)
+
+2.只可编写刚好无法通过的单元测试，不能编译也算不通过(测试一旦失败，开始写生产代码)
+
+3.只可编写刚好足以通过当前失败测试的生产代码(老测试一旦通过，返回写新测试)
+
+####测试先行的一大好处：
+
+如果先写测试，必然得知道输入是什么，期望输出的是什么。这样就不断促进思考该如何得到这样的输出，即把设计代码也放入了测试前期的准备中。
+
+#####保持测试整洁
+
+1.脏测试等同于没测试，测试必须随生产代码的演进而修改，测试越脏，就越难修改
+
+2.测试代码和生产代码一样重要，它需要被思考、被设计和被照料，它该像生产代码一般保持整洁
+
+3.如果测试不能保持整洁，你就会失去它们，没有了测试，你就会失去保证生产代码可扩展的一切要素
+
+#####整洁的测试
+
+1.三个要素：可读性、可读性和可读性，明确、简洁还有足够的表达力
+
+2.构造-操作-检验（BUILD-OPERATE-CHECK）模式，第一个环节构造测试数据，第二个环节操作测试数据，第三个部分检验操作是否得到期望的结果
+
+3.守规矩的开发者也将他们的测试代码重构为更简洁和具有表达力的形式
+
+```java
+//good code
+public void testGetPageHierarchyAsXml() throws Exception {
+  makePages("PageOne", "PageOne.ChildOne", "PageTwo");
+	submitRequest("root", "type:pages");
+	assertResponseIsXML(); 
+  assertResponseContains(
+	"<name>PageOne</name>", "<name>PageTwo</name>", "<name>ChildOne</name>" );
+}
+public void testSymbolicLinksAreNotInXmlPageHierarchy() throws Exception { 
+  WikiPage page = makePage("PageOne");
+	makePages("PageOne.ChildOne", "PageTwo");
+	addLinkTo(page, "PageTwo", "SymPage"); 
+  submitRequest("root", "type:pages");
+	assertResponseIsXML(); 
+  assertResponseContains(
+	"<name>PageOne</name>", "<name>PageTwo</name>", "<name>ChildOne</name>" );
+	assertResponseDoesNotContain("SymPage"); 
+}
+```
+
+```java
+public void testGetDataAsXml() throws Exception { 
+	makePageWithContent("TestPageOne", "test page");
+	submitRequest("TestPageOne", "type:data");
+	assertResponseIsXML();
+	assertResponseContains("test page", "<Test");
+  }
+```
+
+
+
+```java
+//bad
+Test
+public void turnOnLoTempAlarmAtThreashold() throws Exception {
+	hw.setTemp(WAY_TOO_COLD); 
+	controller.tic();
+  assertTrue(hw.heaterState()); 
+  assertTrue(hw.blowerState()); 
+  assertFalse(hw.coolerState());
+  assertFalse(hw.hiTempAlarm()); 
+  assertTrue(hw.loTempAlarm());
+}
+```
+
+
+
+改进后的测试
+
+```java
+//good
+@Test
+public void turnOnLoTempAlarmAtThreshold() throws Exception {
+wayTooCold();
+assertEquals("HBchL", hw.getState()); }
+```
+
+
+
+#####每个测试一个断言
+
+1.JUnit中每个测试函数都应该有且只有一个断言语句
+
+```java
+public void testGetPageHierarchyAsXml() throws Exception { 
+	givenPages("PageOne", "PageOne.ChildOne", "PageTwo");
+	whenRequestIsIssued("root", "type:pages");
+	thenResponseShouldBeXML(); 
+}
+
+public void testGetPageHierarchyHasRightTags() throws Exception {
+  givenPages("PageOne", "PageOne.ChildOne", "PageTwo");
+	whenRequestIsIssued("root", "type:pages");
+	thenResponseShouldContain(
+	"<name>PageOne</name>", "<name>PageTwo</name>", "<name>ChildOne</name>"
+); 
+}
+```
+
+
+
+2.最好的说法是单个测试中的断言数量应该最小化
+
+3.更好一些的规则或许是每个测试函数中只测试一个概念
+
+```java
+	/**
+* Miscellaneous tests for the addMonths() method. */
+public void testAddMonths() {
+	SerialDate d1 = SerialDate.createInstance(31, 5, 2004);
+	SerialDate d2 = SerialDate.addMonths(1, d1); 
+  assertEquals(30, d2.getDayOfMonth()); 		
+  assertEquals(6, d2.getMonth());
+  assertEquals(2004, d2.getYYYY());
+	SerialDate d3 = SerialDate.addMonths(2, d1);
+  assertEquals(31, d3.getDayOfMonth());
+  assertEquals(7, d3.getMonth()); 
+  assertEquals(2004, d3.getYYYY());
+	SerialDate d4 = SerialDate.addMonths(1, SerialDate.addMonths(1, d1)); assertEquals(30, 			d4.getDayOfMonth());
+	assertEquals(7, d4.getMonth());
+	assertEquals(2004, d4.getYYYY());
+}
+```
+
+
+
+4.最佳规则是应该尽可能减少每个概念的断言数量，每个测试函数只测试一个概念
+
+###F.I.R.S.T
+
+1.快速（Fast）测试应该够快
+
+2.独立（Independent）测试应该相互独立
+
+3.可重复（Repeatable）测试应当可在任何环境中重复通过
+
+4.自足验证（Self-Validating）测试应该有布尔值输出，自己就能给出对错，而不需要通过看日志，比对结果等方式验证
+
+5.及时（Timely）测试应及时编写
+
+###十.类
+
+#####类的组织
+
+1.类应该从一级变量列表开始，如果有公共静态变量，应该先出现，然后是私有静态变量，以及实体变量，很少会有公共变量
+
+2.公共函数应该跟在变量列表之后
+
+3.保持变量和工具函数的私有性，但并不执着于此
+
+#####类应该短小
+
+1.职责单一，类的名称应当描述其权责，如果无法为某个类命以精确的名称，这个类大概就太长了，类名越含混，该类越有可能拥有过多权责；类或模块应有且只有一条加以修改的理由
+
+2.内聚性强，方法操作的变量越多，就越黏聚到类上，如果一个类的每个变量都被每个方法所使用，则该类具有最大的内聚性
+
+```java
+  public class Stack {
+         private int topOfStack = 0;
+         List<Integer> elements = new LinkedList<>();
+
+          public int size() {
+             return topOfStack;
+         }
+
+          public void push(int element) {
+             topOfStack++;
+             elements.add(element);
+         }
+
+          public int pop() throws Exception {
+             if (topOfStack == 0) {
+                 throw new Exception("PoppedWhenEmpty");
+             }
+             int element = elements.get(--topOfStack);
+             elements.remove(topOfStack);
+             return element;
+         }
+     }
+```
+
+
+
+3.保持函数和参数列表短小的策略，有时会导致为一组子集方法所用的实体变量数量增加。出现这种情况时，往往意味着至少有一个类要从大类中挣扎出来。你应当尝试将这些变量和方法分拆到两个或多个类中，让新的类更为内聚
+
+```java
+
+
+import java.util.ArrayList;
+
+public class PrimeGenerator {
+  private static int[] primes;
+  private static ArrayList<Integer> multiplesOfPrimeFactors;
+
+  protected static int[] generate(int n) {
+    primes = new int[n];
+    multiplesOfPrimeFactors = new ArrayList<Integer>();
+    set2AsFirstPrime();
+    checkOddNumbersForSubsequentPrimes();
+    return primes;
+  }
+
+  private static void set2AsFirstPrime() {
+    primes[0] = 2;
+    multiplesOfPrimeFactors.add(2);
+  }
+
+  private static void checkOddNumbersForSubsequentPrimes() {
+    int primeIndex = 1;
+    for (int candidate = 3;
+         primeIndex < primes.length;
+         candidate += 2) {
+      if (isPrime(candidate))
+        primes[primeIndex++] = candidate;
+    }
+  }
+
+  private static boolean isPrime(int candidate) {
+    if (isLeastRelevantMultipleOfNextLargerPrimeFactor(candidate)) {
+      multiplesOfPrimeFactors.add(candidate);
+      return false;
+    }
+    return isNotMultipleOfAnyPreviousPrimeFactor(candidate);
+  }
+
+  private static boolean
+  isLeastRelevantMultipleOfNextLargerPrimeFactor(int candidate) {
+    int nextLargerPrimeFactor = primes[multiplesOfPrimeFactors.size()];
+    int leastRelevantMultiple = nextLargerPrimeFactor * nextLargerPrimeFactor;
+    return candidate == leastRelevantMultiple;
+  }
+
+  private static boolean
+  isNotMultipleOfAnyPreviousPrimeFactor(int candidate) {
+    for (int n = 1; n < multiplesOfPrimeFactors.size(); n++) {
+      if (isMultipleOfNthPrimeFactor(candidate, n))
+        return false;
+      }
+    return true;
+  }
+
+  private static boolean
+  isMultipleOfNthPrimeFactor(int candidate, int n) {
+    return
+      candidate == smallestOddNthMultipleNotLessThanCandidate(candidate, n);
+  }
+
+  private static int
+  smallestOddNthMultipleNotLessThanCandidate(int candidate, int n) {
+    int multiple = multiplesOfPrimeFactors.get(n);
+    while (multiple < candidate)
+      multiple += 2 * primes[n];
+    multiplesOfPrimeFactors.set(n, multiple);
+    return multiple;
+  }
+}
+```
+
+```JAVA
+
+
+public class PrimePrinter {
+  public static void main(String[] args) {
+    final int NUMBER_OF_PRIMES = 1000;
+    int[] primes = PrimeGenerator.generate(NUMBER_OF_PRIMES);
+
+    final int ROWS_PER_PAGE = 50;
+    final int COLUMNS_PER_PAGE = 4;
+    RowColumnPagePrinter tablePrinter =
+      new RowColumnPagePrinter(ROWS_PER_PAGE,
+                               COLUMNS_PER_PAGE,
+                               "The First " + NUMBER_OF_PRIMES +
+                                 " Prime Numbers");
+
+    tablePrinter.print(primes);
+  }
+
+}
+```
+
+
+
+4.将大函数拆为许多小函数，往往也是将类拆分为多个小类的时机
+
+#####为了修改而组织
+
+1.在整洁的系统中，我们对类加以组织，以降低修改的风险
+
+```java
+public class Sql {
+
+          public Sql(String table, Column[] columns) {}
+
+          public String create() {
+             return null;
+         }
+
+          public String insert(Object[] fields) {
+             return null;
+         }
+
+          public String selectAll() {
+             return null;
+         }
+
+          //  ...下面还有很多方法，但是没有 update
+     }
+```
+
+
+
+```java
+ abstract class ModifySql {
+
+          public ModifySql(String table, Column[] columns) {}
+
+          abstract public String generate();
+
+          public class CreateSql extends ModifySql {
+
+              public CreateSql(String table, Column[] columns) {
+                 super(table, columns);
+             }
+
+              @Override
+             public String generate() {
+                 return null;
+             }
+         }
+
+          public class SelectSql extends ModifySql {
+
+              public SelectSql(String table, Column[] columns) {
+                 super(table, columns);
+             }
+
+              @Override
+             public String generate() {
+                 return null;
+             }
+         }
+
+          public class InsertSql extends ModifySql {
+
+              public InsertSql(String table, Column[] columns) {
+                 super(table, columns);
+             }
+
+              @Override
+             public String generate() {
+                 return null;
+             }
+         }
+
+          //  ...省略若干类与方法
+     }
+
+      class Column {}
+```
+
+```java
+
+
+import java.io.PrintStream;
+
+public class RowColumnPagePrinter {
+  private int rowsPerPage;
+  private int columnsPerPage;
+  private int numbersPerPage;
+  private String pageHeader;
+  private PrintStream printStream;
+
+  public RowColumnPagePrinter(int rowsPerPage,
+                              int columnsPerPage,
+                              String pageHeader) {
+    this.rowsPerPage = rowsPerPage;
+    this.columnsPerPage = columnsPerPage;
+    this.pageHeader = pageHeader;
+    numbersPerPage = rowsPerPage * columnsPerPage;
+    printStream = System.out;
+  }
+  public void print(int data[]) {
+    int pageNumber = 1;
+    for (int firstIndexOnPage = 0;
+         firstIndexOnPage < data.length;
+         firstIndexOnPage += numbersPerPage) {
+      int lastIndexOnPage =
+        Math.min(firstIndexOnPage + numbersPerPage - 1,
+                 data.length - 1);
+      printPageHeader(pageHeader, pageNumber);
+      printPage(firstIndexOnPage, lastIndexOnPage, data);
+      printStream.println("\f");
+      pageNumber++;
+    }
+  }
+
+  private void printPage(int firstIndexOnPage,
+                         int lastIndexOnPage,
+                         int[] data) {
+    int firstIndexOfLastRowOnPage =
+      firstIndexOnPage + rowsPerPage - 1;
+    for (int firstIndexInRow = firstIndexOnPage;
+         firstIndexInRow <= firstIndexOfLastRowOnPage;
+         firstIndexInRow++) {
+      printRow(firstIndexInRow, lastIndexOnPage, data);
+      printStream.println("");
+    }
+  }
+
+  private void printRow(int firstIndexInRow,
+                        int lastIndexOnPage,
+                        int[] data) {
+    for (int column = 0; column < columnsPerPage; column++) {
+      int index = firstIndexInRow + column * rowsPerPage;
+      if (index <= lastIndexOnPage)
+        printStream.format("%10d", data[index]);
+    }
+  }
+
+  private void printPageHeader(String pageHeader,
+                               int pageNumber) {
+    printStream.println(pageHeader + " --- Page " + pageNumber);
+    printStream.println("");
+  }
+
+  public void setOutput(PrintStream printStream) {
+    this.printStream = printStream;
+  }
+}
+```
+
+
+
+2.开放-闭合原则（OCP）：类应当对扩展开放，对修改封闭
+
+3.在理想系统中，我们通过扩展系统而非修改现有代码来添加新特性
+
+
+--------------------- 
